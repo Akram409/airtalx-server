@@ -99,6 +99,22 @@ async function run() {
       res.send(result);
     })
 
+    //post a job
+    const jobPostCollection = client.db('airtalxDB').collection('jobPosts');
+
+    app.get('/newJobPost', async (req, res) => {
+      const cursor = jobPostCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
+    app.post('/newJobPost', async (req, res) => {
+      const newJobPost = req.body;
+      console.log(newJobPost);
+      const result = await jobPostCollection.insertOne(newJobPost);
+      res.send(result);
+    })
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
