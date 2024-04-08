@@ -50,6 +50,7 @@ async function run() {
       res.send({token});
     })
 
+    //storing user data
     app.get('/users', async (req, res) => {
       console.log(req.query.email);
       let query = {};
@@ -112,6 +113,17 @@ async function run() {
       const newJobPost = req.body;
       console.log(newJobPost);
       const result = await jobPostCollection.insertOne(newJobPost);
+      res.send(result);
+    })
+
+    //shows only user's job posts
+    app.get('/myJobPosts', async (req, res) => {
+      console.log(req.query.email);
+      let query = {};
+      if (req.query?.email) {
+        query = { email: req.query.email }
+      }
+      const result = await jobPostCollection.find(query).toArray();
       res.send(result);
     })
 
