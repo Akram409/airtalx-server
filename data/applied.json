@@ -1,0 +1,17 @@
+[
+    {
+        "userEmail": "user@example.com",
+        "jobId": "661455a1153aea95ed38f600",
+        "status": "pending",
+        "employeEmail": "employee@example.com",
+        "jobData": {
+          "headline": "Software Engineer Position Available",
+          "jobType": "Full-time",
+          "email": "hr@example.com",
+          "companyName": "TechCo",
+          "jobTitle": "Software Engineer",
+          "salary": "$10/hr",
+          "jobDescription": "TechCo is seeking a skilled Software Engineer to join our team. The ideal candidate will have experience with web development technologies such as JavaScript, HTML, CSS, and frameworks like React or Angular."
+        }
+      }
+]
