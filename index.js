@@ -108,6 +108,9 @@ async function run() {
         role: role,
         photoURL: photoURL,
         password: hashedPassword,
+        about: "",
+        studies: "",
+        location: ""
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -151,6 +154,9 @@ async function run() {
         role: role,
         photoURL: photoURL,
         password: "",
+        about: "",
+        studies: "",
+        location: ""
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -162,17 +168,59 @@ async function run() {
 
       res.send({ token, user });
     });
+    // Update Profile
+    app.put("/update/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const { name, password, photoURL,about,studies,location} = req.body;
+        console.log("🚀 ~ router.put ~ req.body:", req.body)
 
+        let userToUpdate = {};
+
+        // Retrieve existing user data
+        const existingUser = await usersCollection.findOne({ email });
+        if (!existingUser) {
+          return res.status(404).json({ error: "User not found." });
+        }
+
+        // Update fields provided in the request body
+        if (name) userToUpdate.name = name;
+        if (photoURL) userToUpdate.photoURL = photoURL;
+        if (about) userToUpdate.about = about;
+        if (studies) userToUpdate.studies = studies;
+        if (location) userToUpdate.location = location;
+
+        if (password !== "") {
+          const hashedPassword = await bcrypt.hash(password, 10);
+          userToUpdate.password = hashedPassword;
+        } 
+        // else {
+        //   userToUpdate.password = oldPass;
+        // }
+
+        // Update user data in the database
+        const result = await usersCollection.updateOne(
+          { email },
+          { $set: userToUpdate }
+        );
+        const user = await usersCollection.findOne({ email });
+
+        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+          expiresIn: "7d",
+        });
+
+        res.json({ token, user });
+      } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).json({ error: "Internal server error." });
+      }
+    });
     app.get("/users", async (req, res) => {
       // console.log(req.query.email);
       let query = {};
       if (req.query?.email) {
         query = { email: req.query.email };
       }
-      // const decodedEmail = req.decoded.email;
-      // if(req.query.email !== decodedEmail) {
-      //   return res.status(401).send({error: true, message: 'Unauthorize access'});
-      // }
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
