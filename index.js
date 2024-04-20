@@ -4,6 +4,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
+const bcrypt = require("bcryptjs");
 
 //middleware
 app.use(cors());
@@ -46,27 +47,75 @@ async function run() {
 
     const usersCollection = client.db("airtalxDB").collection("users");
 
-    app.get("/verifyToken",verifyJWT, (req, res) => {
+    app.get("/verifyToken", verifyJWT, (req, res) => {
       const user = req.user;
-      console.log("🚀 ~ app.get ~ user:", user)
-      
+      // console.log("🚀 ~ app.get ~ user:", user);
+
       res.send(user);
     });
-    
+
     //storing user data
-    app.get("/users", async (req, res) => {
-      console.log(req.query.email);
-      let query = {};
-      if (req.query?.email) {
-        query = { email: req.query.email };
+    // Email pass login
+    app.post("/login", async (req, res) => {
+      try {
+        const { email, password } = req.body;
+        // Input validation:
+        if (!email || !password) {
+          res.status(401).json({ error: "Invalid email or password." });
+        }
+
+        // Search by email only:
+        const user = await usersCollection.findOne({ email });
+
+        // Handle cases where no user is found or password is incorrect:
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+          return res.status(401).json({ error: "Invalid email or password." });
+        }
+
+        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+          expiresIn: "7d",
+        });
+
+        res.status(200).json({ token, user });
+      } catch (error) {
+        res.status(500).json({ error: "Internal server error." });
       }
-      // const decodedEmail = req.decoded.email;
-      // if(req.query.email !== decodedEmail) {
-      //   return res.status(401).send({error: true, message: 'Unauthorize access'});
-      // }
-      const result = await usersCollection.find(query).toArray();
-      res.send(result);
     });
+    // Signup
+    app.post("/signup", async (req, res) => {
+      const { name, email, role, photoURL, password } = req.body;
+      const query = { email: email };
+
+      if (!name || !email || !password) {
+        throw new Error("All fields are required");
+      }
+
+      const existingUserByEmail = await usersCollection.findOne(query);
+
+      if (existingUserByEmail) {
+        return res.status(400).json({
+          error:
+            "An account with this email already exists. Please use a different email.",
+        });
+      }
+
+      // Hash password and create new user object
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const userData = {
+        name: name,
+        email: email,
+        role: role,
+        photoURL: photoURL,
+        password: hashedPassword,
+      };
+
+      const insertedData = await usersCollection.insertOne(userData);
+      res
+        .status(200)
+        .json({ message: "User created successfully", insertedData });
+    });
+    // Google Login
     app.get("/users/google/:email", async (req, res) => {
       try {
         const email = req.params.email;
@@ -76,19 +125,20 @@ async function run() {
         if (!user) {
           return res.status(404).send({ message: "User not found" });
         }
-        
+
         const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-          expiresIn: "1h",
+          expiresIn: "7d",
         });
 
-        res.send({token,user});
+        res.send({ token, user });
       } catch (error) {
         console.error("Error finding user:", error);
         res.status(500).send({ error: "Internal server error" });
       }
     });
-    app.post("/users", async (req, res) => {
-      const { name, email, role, photoURL,password } = req.body;
+    // Google Signup
+    app.post("/google/signup", async (req, res) => {
+      const { name, email, role, photoURL } = req.body;
       const query = { email: email };
 
       const existingUser = await usersCollection.findOne(query);
@@ -104,7 +154,27 @@ async function run() {
       };
 
       const insertedData = await usersCollection.insertOne(userData);
-      res.send(insertedData);
+
+      const user = await usersCollection.findOne(query);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "7d",
+      });
+
+      res.send({ token, user });
+    });
+
+    app.get("/users", async (req, res) => {
+      // console.log(req.query.email);
+      let query = {};
+      if (req.query?.email) {
+        query = { email: req.query.email };
+      }
+      // const decodedEmail = req.decoded.email;
+      // if(req.query.email !== decodedEmail) {
+      //   return res.status(401).send({error: true, message: 'Unauthorize access'});
+      // }
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
     });
     app.get("/users/admin/:id", verifyJWT, async (req, res) => {
       const email = req.params.email;
@@ -138,17 +208,15 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-
     app.post("/newJobPost", async (req, res) => {
       const newJobPost = req.body;
-      console.log(newJobPost);
+      // console.log(newJobPost);
       const result = await jobPostCollection.insertOne(newJobPost);
       res.send(result);
     });
-
     //shows only user's job posts
     app.get("/myJobPosts", async (req, res) => {
-      console.log(req.query.email);
+      // console.log(req.query.email);
       let query = {};
       if (req.query?.email) {
         query = { email: req.query.email };
@@ -156,7 +224,6 @@ async function run() {
       const result = await jobPostCollection.find(query).toArray();
       res.send(result);
     });
-
     app.delete("/myJobPosts/:id", async (req, res) => {
       const id = req.params.id;
       const querry = { _id: new ObjectId(id) };
