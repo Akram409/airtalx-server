@@ -110,7 +110,7 @@ async function run() {
         password: hashedPassword,
         about: "",
         studies: "",
-        location: ""
+        location: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -156,7 +156,7 @@ async function run() {
         password: "",
         about: "",
         studies: "",
-        location: ""
+        location: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -172,8 +172,8 @@ async function run() {
     app.put("/update/:email", async (req, res) => {
       try {
         const email = req.params.email;
-        const { name, password, photoURL,about,studies,location} = req.body;
-        console.log("🚀 ~ router.put ~ req.body:", req.body)
+        const { name, password, photoURL, about, studies, location } = req.body;
+        console.log("🚀 ~ router.put ~ req.body:", req.body);
 
         let userToUpdate = {};
 
@@ -193,7 +193,7 @@ async function run() {
         if (password !== "") {
           const hashedPassword = await bcrypt.hash(password, 10);
           userToUpdate.password = hashedPassword;
-        } 
+        }
         // else {
         //   userToUpdate.password = oldPass;
         // }
@@ -283,6 +283,7 @@ async function run() {
     const appliedJobCollection = client
       .db("airtalxDB")
       .collection("appliedJob");
+
     app.get("/appliedJob", async (req, res) => {
       try {
         const data = await appliedJobCollection.find().toArray();
@@ -295,6 +296,7 @@ async function run() {
       try {
         const userEmail = req.params.userEmail;
         const jobApplicationData = req.body;
+        console.log("🚀 ~ app.post ~ jobApplicationData:", req.body)
 
         // Check if the job has already been applied by the user
         const existingApplication = await appliedJobCollection.findOne({
@@ -304,14 +306,14 @@ async function run() {
 
         if (existingApplication) {
           // If the job has already been applied by the user, send a response indicating so
-          res.status(400).json({ error: "Job already applied by this user." });
+          res.status(400).json({ error: "Job already applied!" });
         } else {
           // If the job has not been applied by the user, insert the job application data into the collection
           await appliedJobCollection.insertOne({
             userEmail: userEmail,
             jobId: jobApplicationData.jobId,
-            status: "pending", // assuming the status is initially pending
-            employeEmail: "", // employee email will be assigned later
+            status: "pending",
+            employeEmail: jobApplicationData.employeEmail,
             jobData: jobApplicationData.jobData,
           });
 
