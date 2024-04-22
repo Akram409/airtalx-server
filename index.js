@@ -271,8 +271,7 @@ async function run() {
     const jobPostCollection = client.db("airtalxDB").collection("jobPosts");
 
     app.get("/newJobPost", async (req, res) => {
-      const cursor = jobPostCollection.find();
-      const result = await cursor.toArray();
+      const result = await jobPostCollection.find().toArray();
       res.send(result);
     });
     app.post("/newJobPost", async (req, res) => {
@@ -395,19 +394,20 @@ async function run() {
     });
     app.post("/appliedJob/jobseeker/:userEmail", async (req, res) => {
       try {
-        // Extract employeEmail and status from the URL parameters
+        // Extract userEmail from the URL parameters
         const userEmail = req.params.userEmail;
-
-        // Construct filter based on employeEmail and status
-        const filter = { userEmail };
-
+    
+        const filter = { userEmail, status: "approved" };
+    
         // Query the collection with the filter
         const data = await appliedJobCollection.find(filter).toArray();
+    
         res.json(data);
       } catch (error) {
         res.status(500).json({ error: "Internal server error." });
       }
     });
+    
     app.patch("/appliedJob/updateStatus/:userEmail", async (req, res) => {
       try {
         const userEmail = req.params.userEmail;
