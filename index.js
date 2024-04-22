@@ -234,7 +234,6 @@ async function run() {
       const result = { admin: user?.role === "admin" };
       res.send(result);
     });
-
     //making admin role
     app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
@@ -246,6 +245,26 @@ async function run() {
       };
       const result = await usersCollection.updateOne(filter, updatedDoc);
       res.send(result);
+    });
+    app.delete("/user/delete/:email", async (req, res) => {
+      try {
+        const userEmail = req.params.email;
+        if (!userEmail) {
+          return res.status(400).json({ error: "Email parameter is missing." });
+        }
+
+        const query = { email: userEmail };
+        const result = await usersCollection.deleteOne(query);
+
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ error: "User not found." });
+        }
+
+        res.status(200).json({ message: "User deleted successfully." });
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({ error: "Internal server error." });
+      }
     });
 
     //post a job
@@ -272,6 +291,22 @@ async function run() {
       const result = await jobPostCollection.find(query).toArray();
       res.send(result);
     });
+    app.get("/jobPost/employe/:employeEmail", async (req, res) => {
+      try {
+        const employeEmail = req.params.employeEmail;
+
+        // Construct filter based on employeEmail
+        const filter = { email: employeEmail };
+
+        // Query the collection with the filter
+        const result = await jobPostCollection.find(filter).toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching job posts:", error);
+        res.status(500).json({ error: "Internal server error." });
+      }
+    });
     app.delete("/myJobPosts/:id", async (req, res) => {
       const id = req.params.id;
       const querry = { _id: new ObjectId(id) };
@@ -296,7 +331,7 @@ async function run() {
       try {
         const userEmail = req.params.userEmail;
         const jobApplicationData = req.body;
-        console.log("🚀 ~ app.post ~ jobApplicationData:", req.body)
+        console.log("🚀 ~ app.post ~ jobApplicationData:", req.body);
 
         // Check if the job has already been applied by the user
         const existingApplication = await appliedJobCollection.findOne({
@@ -326,9 +361,8 @@ async function run() {
         res.status(500).json({ error: "Internal server error." });
       }
     });
-    app.post("/appliedJob/employe/:employeEmail", async (req, res) => {
+    app.get("/job/employe/:employeEmail", async (req, res) => {
       try {
-        // Extract employeEmail and status from the URL parameters
         const employeEmail = req.params.employeEmail;
 
         // Construct filter based on employeEmail and status
@@ -338,6 +372,24 @@ async function run() {
         const data = await appliedJobCollection.find(filter).toArray();
         res.json(data);
       } catch (error) {
+        console.error("Error fetching data:", error);
+        res.status(500).json({ error: "Internal server error." });
+      }
+    });
+    app.get("/job/employe/pending/:employeEmail", async (req, res) => {
+      try {
+        const employeEmail = req.params.employeEmail;
+        console.log("🚀 ~ app.get ~ employeEmail:", employeEmail)
+
+        // Construct filter based on employeEmail and status
+        const filter = { employeEmail, status: "pending" };
+
+        // Query the collection with the filter
+        const data = await appliedJobCollection.find(filter).toArray();
+        
+        res.json(data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
         res.status(500).json({ error: "Internal server error." });
       }
     });
@@ -356,6 +408,30 @@ async function run() {
         res.status(500).json({ error: "Internal server error." });
       }
     });
+    app.patch("/appliedJob/updateStatus/:userEmail", async (req, res) => {
+      try {
+        const userEmail = req.params.userEmail;
+        const { jobId, status } = req.body;
+    
+        // Update the status of the job application for the specified user and job ID
+        const result = await appliedJobCollection.updateOne(
+          { userEmail: userEmail, jobId: jobId },
+          { $set: { status: status } }
+        );
+    
+        if (result.modifiedCount === 1) {
+          // If the job application status was successfully updated
+          res.json({ message: "Job application Approved" });
+        } else {
+          // If no documents were modified (no matching job application found)
+          res.status(404).json({ error: "Job application not found." });
+        }
+      } catch (error) {
+        console.error("Error updating job application status:", error);
+        res.status(500).json({ error: "Internal server error." });
+      }
+    });
+    
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
