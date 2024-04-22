@@ -194,9 +194,6 @@ async function run() {
           const hashedPassword = await bcrypt.hash(password, 10);
           userToUpdate.password = hashedPassword;
         }
-        // else {
-        //   userToUpdate.password = oldPass;
-        // }
 
         // Update user data in the database
         const result = await usersCollection.updateOne(
