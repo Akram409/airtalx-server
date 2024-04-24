@@ -5,6 +5,35 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const bcrypt = require("bcryptjs");
+const multer = require("multer");
+const path = require("path");
+const UPLOAD_FOLDER = "./public/image";
+app.use(express.static("public"));
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_FOLDER);
+  },
+  filename: (req, file, cb) => {
+    if (file) {
+      const fileExt = path.extname(file.originalname);
+      const fileName =
+        file.originalname
+          .replace(fileExt, "")
+          .toLowerCase()
+          .split(" ")
+          .join("-") +
+        "-" +
+        Date.now();
+      console.log("🚀 ~ fileName:", fileName);
+      cb(null, fileName + fileExt);
+    }
+  },
+});
+
+var upload = multer({
+  storage: storage,
+});
 
 //middleware
 app.use(cors());
@@ -82,8 +111,9 @@ async function run() {
       }
     });
     // Signup
-    app.post("/signup", async (req, res) => {
-      const { name, email, role, photoURL, password } = req.body;
+    app.post("/signup", upload.single("images"), async (req, res) => {
+      const { name, email, role, password } = req.body;
+      const filenames = req.file.filename;
       const query = { email: email };
 
       if (!name || !email || !password) {
@@ -101,12 +131,12 @@ async function run() {
 
       // Hash password and create new user object
       const hashedPassword = await bcrypt.hash(password, 10);
-
+      const path = "http://localhost:5000/image/";
       const userData = {
         name: name,
         email: email,
         role: role,
-        photoURL: photoURL,
+        photoURL: path + filenames,
         password: hashedPassword,
         about: "",
         studies: "",
@@ -169,11 +199,11 @@ async function run() {
       res.send({ token, user });
     });
     // Update Profile
-    app.put("/update/:email", async (req, res) => {
+    app.put("/update/:email", upload.single("images"), async (req, res) => {
       try {
         const email = req.params.email;
-        const { name, password, photoURL, about, studies, location } = req.body;
-        console.log("🚀 ~ router.put ~ req.body:", req.body);
+        const { name, password, about, studies, location } = req.body;
+        const filename = req.file ? req.file.filename : undefined;
 
         let userToUpdate = {};
 
@@ -182,10 +212,10 @@ async function run() {
         if (!existingUser) {
           return res.status(404).json({ error: "User not found." });
         }
-
+        const paths = "http://localhost:5000/image/";
         // Update fields provided in the request body
         if (name) userToUpdate.name = name;
-        if (photoURL) userToUpdate.photoURL = photoURL;
+        if (filename) userToUpdate.photoURL = paths + filename;
         if (about) userToUpdate.about = about;
         if (studies) userToUpdate.studies = studies;
         if (location) userToUpdate.location = location;
@@ -194,7 +224,6 @@ async function run() {
           const hashedPassword = await bcrypt.hash(password, 10);
           userToUpdate.password = hashedPassword;
         }
-
         // Update user data in the database
         const result = await usersCollection.updateOne(
           { email },
@@ -266,7 +295,37 @@ async function run() {
 
     //post a job
     const jobPostCollection = client.db("airtalxDB").collection("jobPosts");
+    app.get("/filterJob", async (req, res) => {
+      try {
+        const { searchValue, typeSelect } = req.query;
 
+        // Construct the filter object based on typeSelect and searchValue
+        const filter = {};
+
+        if (!typeSelect) {
+          // If no type is selected, search both jobTitle and companyName
+          filter.$or = [
+            { jobTitle: { $regex: new RegExp(searchValue, "i") } },
+            { companyName: { $regex: new RegExp(searchValue, "i") } },
+          ];
+        } else if (typeSelect === "Job") {
+          filter.jobTitle = { $regex: new RegExp(searchValue, "i") };
+        } else if (typeSelect === "Employer") {
+          filter.companyName = { $regex: new RegExp(searchValue, "i") };
+        } else {
+          // If type is invalid, return empty result
+          return res.json([]);
+        }
+
+        // Fetch job posts based on the constructed filter
+        const filteredJobs = await jobPostCollection.find(filter).toArray();
+
+        res.json(filteredJobs);
+      } catch (error) {
+        console.error("Error filtering job posts:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
     app.get("/newJobPost", async (req, res) => {
       const result = await jobPostCollection.find().toArray();
       res.send(result);
@@ -327,7 +386,6 @@ async function run() {
       try {
         const userEmail = req.params.userEmail;
         const jobApplicationData = req.body;
-        console.log("🚀 ~ app.post ~ jobApplicationData:", req.body);
 
         // Check if the job has already been applied by the user
         const existingApplication = await appliedJobCollection.findOne({
@@ -344,6 +402,7 @@ async function run() {
             userEmail: userEmail,
             jobId: jobApplicationData.jobId,
             status: "pending",
+            projectStatus: "Not Complete",
             employeEmail: jobApplicationData.employeEmail,
             jobData: jobApplicationData.jobData,
           });
@@ -362,7 +421,11 @@ async function run() {
         const employeEmail = req.params.employeEmail;
 
         // Construct filter based on employeEmail and status
-        const filter = { employeEmail, status: "approved" };
+        const filter = {
+          employeEmail,
+          status: "approved",
+          projectStatus: "Not Complete",
+        };
 
         // Query the collection with the filter
         const data = await appliedJobCollection.find(filter).toArray();
@@ -375,14 +438,54 @@ async function run() {
     app.get("/job/employe/pending/:employeEmail", async (req, res) => {
       try {
         const employeEmail = req.params.employeEmail;
-        console.log("🚀 ~ app.get ~ employeEmail:", employeEmail)
+        console.log("🚀 ~ app.get ~ employeEmail:", employeEmail);
 
         // Construct filter based on employeEmail and status
         const filter = { employeEmail, status: "pending" };
 
         // Query the collection with the filter
         const data = await appliedJobCollection.find(filter).toArray();
-        
+
+        res.json(data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        res.status(500).json({ error: "Internal server error." });
+      }
+    });
+    app.get("/job/employe/history/:employeEmail", async (req, res) => {
+      try {
+        const employeEmail = req.params.employeEmail;
+
+        // Construct filter based on employeEmail, status, and projectStatus
+        const filter = {
+          employeEmail,
+          status: "approved",
+          projectStatus: { $ne: "Not Complete" },
+        };
+
+        // Query the collection with the filter
+        const data = await appliedJobCollection.find(filter).toArray();
+
+        res.json(data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        res.status(500).json({ error: "Internal server error." });
+      }
+    });
+    app.get("/job/jobseeker/history/:jobseekerEmail", async (req, res) => {
+      try {
+        const userEmail = req.params.jobseekerEmail;
+
+        // Construct filter based on employeEmail, status, and projectStatus
+        const filter = {
+          userEmail,
+          status: "approved",
+          projectStatus: { $ne: "Not Complete" },
+        };
+
+        // Query the collection with the filter
+        const data = await appliedJobCollection.find(filter).toArray();
+
         res.json(data);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -393,29 +496,47 @@ async function run() {
       try {
         // Extract userEmail from the URL parameters
         const userEmail = req.params.userEmail;
-    
-        const filter = { userEmail, status: "approved" };
-    
+
+        const filter = {
+          userEmail,
+          status: "approved",
+          projectStatus: "Not Complete",
+        };
+
         // Query the collection with the filter
         const data = await appliedJobCollection.find(filter).toArray();
-    
+
         res.json(data);
       } catch (error) {
         res.status(500).json({ error: "Internal server error." });
       }
     });
-    
+    app.post("/appliedJob/jobseeker/all/:userEmail", async (req, res) => {
+      try {
+        // Extract userEmail from the URL parameters
+        const userEmail = req.params.userEmail;
+
+        const filter = { userEmail };
+
+        // Query the collection with the filter
+        const data = await appliedJobCollection.find(filter).toArray();
+
+        res.json(data);
+      } catch (error) {
+        res.status(500).json({ error: "Internal server error." });
+      }
+    });
     app.patch("/appliedJob/updateStatus/:userEmail", async (req, res) => {
       try {
         const userEmail = req.params.userEmail;
         const { jobId, status } = req.body;
-    
+
         // Update the status of the job application for the specified user and job ID
         const result = await appliedJobCollection.updateOne(
           { userEmail: userEmail, jobId: jobId },
           { $set: { status: status } }
         );
-    
+
         if (result.modifiedCount === 1) {
           // If the job application status was successfully updated
           res.json({ message: "Job application Approved" });
@@ -428,7 +549,32 @@ async function run() {
         res.status(500).json({ error: "Internal server error." });
       }
     });
-    
+    app.patch(
+      "/appliedJob/updateProjectStatus/:userEmail",
+      async (req, res) => {
+        try {
+          const userEmail = req.params.userEmail;
+          const { jobId, projectStatus } = req.body;
+
+          // Update the status of the job application for the specified user and job ID
+          const result = await appliedJobCollection.updateOne(
+            { userEmail: userEmail, jobId: jobId },
+            { $set: { projectStatus: projectStatus } }
+          );
+
+          if (result.modifiedCount === 1) {
+            // If the job application status was successfully updated
+            res.json({ message: "Job application Approved" });
+          } else {
+            // If no documents were modified (no matching job application found)
+            res.status(404).json({ error: "Job application not found." });
+          }
+        } catch (error) {
+          console.error("Error updating job application status:", error);
+          res.status(500).json({ error: "Internal server error." });
+        }
+      }
+    );
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
