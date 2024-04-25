@@ -25,7 +25,6 @@ const storage = multer.diskStorage({
           .join("-") +
         "-" +
         Date.now();
-      console.log("🚀 ~ fileName:", fileName);
       cb(null, fileName + fileExt);
     }
   },
@@ -141,6 +140,7 @@ async function run() {
         about: "",
         studies: "",
         location: "",
+        resume: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -187,6 +187,7 @@ async function run() {
         about: "",
         studies: "",
         location: "",
+        resume: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -291,6 +292,49 @@ async function run() {
         console.error("Error deleting user:", error);
         res.status(500).json({ error: "Internal server error." });
       }
+    });
+
+    // Resuem Upload
+    app.post(
+      "/resume/upload/:userEmail",
+      upload.single("file"),
+      async (req, res) => {
+        try {
+          const email = req.params.userEmail;
+          const file = req.file;
+
+          if (!file) {
+            return res.status(400).json({ error: "No file uploaded." });
+          }
+
+          // Update the user's resume field with the filename
+          const result = await usersCollection.updateOne(
+            { email: email },
+            { $set: { resume: file.filename } }
+          );
+
+          if (result.modifiedCount === 1) {
+            const user = await usersCollection.findOne({ email });
+
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+              expiresIn: "7d",
+            });
+
+            res.json({ token, user });
+          } else {
+            res.status(404).json({ error: "User not found." });
+          }
+        } catch (error) {
+          console.error("Error uploading resume:", error);
+          res.status(500).json({ error: "Internal server error." });
+        }
+      }
+    );
+
+    // Resume Download
+    app.get("/download/resume/:resumePath", (req, res) => {
+      const name = req.params.resumePath;
+      res.download(path.resolve(`public\\image\\${name}`));
     });
 
     //post a job
