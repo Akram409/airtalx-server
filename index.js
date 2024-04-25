@@ -74,7 +74,10 @@ async function run() {
     await client.connect();
 
     const usersCollection = client.db("airtalxDB").collection("users");
-
+    //applied job
+    const appliedJobCollection = client
+      .db("airtalxDB")
+      .collection("appliedJob");
     app.get("/verifyToken", verifyJWT, (req, res) => {
       const user = req.user;
       // console.log("🚀 ~ app.get ~ user:", user);
@@ -203,7 +206,8 @@ async function run() {
     app.put("/update/:email", upload.single("images"), async (req, res) => {
       try {
         const email = req.params.email;
-        const { name, password, about, studies, location } = req.body;
+        const { name, password, about, role, studies, location } = req.body;
+        console.log("🚀 ~ app.put ~ req.body:", req.body);
         const filename = req.file ? req.file.filename : undefined;
 
         let userToUpdate = {};
@@ -230,6 +234,39 @@ async function run() {
           { email },
           { $set: userToUpdate }
         );
+
+        // Check if the role is "employer"
+        if (role === "employer") {
+          // Retrieve all documents from appliedJob collection where employeEmail matches the user's email
+          const appliedJobsToUpdate = await appliedJobCollection
+            .find({ employeEmail: email })
+            .toArray();
+
+          // Update companyName in each document
+          const updatedJobs = appliedJobsToUpdate.map(async (job) => {
+            await appliedJobCollection.updateOne(
+              { _id: job._id },
+              { $set: { "jobData.companyName": name } }
+            );
+          });
+
+          // Retrieve all documents from jobPostCollection where email matches the user's email
+          const jobPostsToUpdate = await jobPostCollection
+            .find({ email })
+            .toArray();
+
+          // Update companyName in each document in jobPostCollection
+          const updatedJobPosts = jobPostsToUpdate.map(async (jobPost) => {
+            await jobPostCollection.updateOne(
+              { _id: jobPost._id },
+              { $set: { companyName: name } }
+            );
+          });
+
+          // Wait for all updates to complete
+          await Promise.all(updatedJobs, updatedJobPosts);
+        }
+
         const user = await usersCollection.findOne({ email });
 
         const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -412,11 +449,6 @@ async function run() {
       const result = await jobPostCollection.deleteOne(querry);
       res.send(result);
     });
-
-    //applied job
-    const appliedJobCollection = client
-      .db("airtalxDB")
-      .collection("appliedJob");
 
     app.get("/appliedJob", async (req, res) => {
       try {
