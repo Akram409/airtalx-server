@@ -317,11 +317,28 @@ async function run() {
           return res.status(400).json({ error: "Email parameter is missing." });
         }
 
+        // Find the user by email to get their role
+        const user = await usersCollection.findOne({ email: userEmail });
+        if (!user) {
+          return res.status(404).json({ error: "User not found." });
+        }
+
+        // Delete the user from the users collection
         const query = { email: userEmail };
         const result = await usersCollection.deleteOne(query);
 
         if (result.deletedCount === 0) {
           return res.status(404).json({ error: "User not found." });
+        }
+
+        // Based on the user's role, perform additional actions
+        if (user.role === "jobseeker") {
+          // If the user is a jobseeker, delete all applied job data associated with them
+          await appliedJobCollection.deleteMany({ userEmail: userEmail });
+        } else if (user.role === "employer") {
+          // If the user is an employer, delete their job posts and related applied job data
+          await jobPostCollection.deleteMany({ email: userEmail });
+          await appliedJobCollection.deleteMany({ employeEmail: userEmail });
         }
 
         res.status(200).json({ message: "User deleted successfully." });
