@@ -144,6 +144,12 @@ async function run() {
         studies: "",
         location: "",
         resume: "",
+        preferredSalary: "",
+        preferredJobType: "",
+        expertiseField: "",
+        expertiseLevel: "",
+        jobPosition: "",
+        jobCompanyName: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -191,6 +197,12 @@ async function run() {
         studies: "",
         location: "",
         resume: "",
+        preferredSalary: "",
+        preferredJobType: "",
+        expertiseField: "",
+        expertiseLevel: "",
+        jobPosition: "",
+        jobCompanyName: ""
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -206,7 +218,7 @@ async function run() {
     app.put("/update/:email", upload.single("images"), async (req, res) => {
       try {
         const email = req.params.email;
-        const { name, password, about, role, studies, location } = req.body;
+        const { name, password, about, role, studies, location, preferredSalary, preferredJobType, expertiseField, expertiseLevel, jobPosition, jobCompanyName } = req.body;
         console.log("🚀 ~ app.put ~ req.body:", req.body);
         const filename = req.file ? req.file.filename : undefined;
 
@@ -224,6 +236,12 @@ async function run() {
         if (about) userToUpdate.about = about;
         if (studies) userToUpdate.studies = studies;
         if (location) userToUpdate.location = location;
+        if (preferredSalary) userToUpdate.preferredSalary = preferredSalary;
+        if (preferredJobType) userToUpdate.preferredJobType = preferredJobType;
+        if (expertiseField) userToUpdate.expertiseField = expertiseField;
+        if (expertiseLevel) userToUpdate.expertiseLevel = expertiseLevel;
+        if (jobPosition) userToUpdate.jobPosition = jobPosition;
+        if (jobCompanyName) userToUpdate.jobCompanyName = jobCompanyName
 
         if (password !== "") {
           const hashedPassword = await bcrypt.hash(password, 10);
