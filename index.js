@@ -405,17 +405,19 @@ async function run() {
             expiresIn: "7d",
           }
         );
-
+  
         var transporter = nodemailer.createTransport({
           service: "gmail",
           auth: {
-            user: "",
-            pass: "",
+            user: "algobot701@gmail.com",
+            pass: "jfth qddl nkgp yitb",
+            
+
           },
         });
 
         var mailOptions = {
-          from: "",
+          from: "algobot701@gmail.com",
           to: user.email,
           subject: "Reset Password Link",
           text: `http://localhost:5173/reset_password/${user._id}/${token}`,
