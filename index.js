@@ -156,6 +156,7 @@ async function run() {
         expertiseLevel: "",
         jobPosition: "",
         jobCompanyName: "",
+        memberSince: "",
       };
 
       var transporter = nodemailer.createTransport({
@@ -259,6 +260,7 @@ async function run() {
         expertiseLevel: "",
         jobPosition: "",
         jobCompanyName: "",
+        memberSince: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
