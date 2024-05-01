@@ -58,6 +58,7 @@ const verifyJWT = (req, res, next) => {
 };
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.fdbahux.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -132,6 +133,8 @@ async function run() {
         });
       }
 
+      const otp = Math.floor(100000 + Math.random() * 900000);
+
       // Hash password and create new user object
       const hashedPassword = await bcrypt.hash(password, 10);
       const path = "http://localhost:5000/image/";
@@ -141,6 +144,8 @@ async function run() {
         role: role,
         photoURL: path + filenames,
         password: hashedPassword,
+        verification: false,
+        otp,
         about: "",
         studies: "",
         location: "",
@@ -153,10 +158,59 @@ async function run() {
         jobCompanyName: "",
       };
 
+      var transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: "algobot701@gmail.com",
+          pass: "jfth qddl nkgp yitb",
+        },
+      });
+
+      var mailOptions = {
+        from: '"Fred Foo 👻"',
+        to: email,
+        subject: "Email Verification",
+        text: "Confirmation email",
+        html: `
+            <b>Hello ${name}. Please confirm your otp.</b>
+            <b>Your confirmation code is</b>
+            <h1>${otp}</h1>
+        `,
+      };
+
+      transporter.sendMail(mailOptions, function (error, info) {
+        if (error) {
+          console.log(error);
+        } else {
+          return res.send({ Status: "Success" });
+        }
+      });
+
       const insertedData = await usersCollection.insertOne(userData);
       res
         .status(200)
         .json({ message: "User created successfully", insertedData });
+    });
+    // !------------OTP Verification----------
+    app.post("/otp-verification", async (req, res) => {
+      try {
+        const { otp } = req.body;
+        const user = await usersCollection.findOne({ otp });
+        if (!user) {
+          return res.status(401).json({ message: 'otp didn"t match' });
+        }
+        console.log(user);
+        const result = await usersCollection.updateOne(
+          { _id: user._id },
+          { verification: true }
+        );
+        return res.status(200).json({
+          message: "successfully verify email. have a good day",
+          success: true,
+        });
+      } catch (error) {
+        console.log(error);
+      }
     });
     // Google Login
     app.get("/users/google/:email", async (req, res) => {
@@ -194,6 +248,7 @@ async function run() {
         role: role,
         photoURL: photoURL,
         password: "",
+        verification: true,
         about: "",
         studies: "",
         location: "",
@@ -223,6 +278,7 @@ async function run() {
           name,
           password,
           about,
+          verification,
           role,
           studies,
           location,
@@ -250,6 +306,7 @@ async function run() {
         const userToUpdate = {
           name,
           about,
+          verification,
           studies,
           location,
           preferredSalary,
@@ -257,7 +314,7 @@ async function run() {
           expertiseField,
           expertiseLevel,
           jobPosition,
-          jobCompanyName
+          jobCompanyName,
         };
 
         if (isUpdate == "False") {
@@ -405,14 +462,12 @@ async function run() {
             expiresIn: "7d",
           }
         );
-  
+
         var transporter = nodemailer.createTransport({
           service: "gmail",
           auth: {
             user: "algobot701@gmail.com",
             pass: "jfth qddl nkgp yitb",
-            
-
           },
         });
 
@@ -515,6 +570,7 @@ async function run() {
     app.get("/filterJob", async (req, res) => {
       try {
         const { searchValue, typeSelect } = req.query;
+        console.log("🚀 ~ app.get ~ typeSelect:", typeSelect);
 
         // Construct the filter object based on typeSelect and searchValue
         const filter = {};
@@ -529,6 +585,10 @@ async function run() {
           filter.jobTitle = { $regex: new RegExp(searchValue, "i") };
         } else if (typeSelect === "Employer") {
           filter.companyName = { $regex: new RegExp(searchValue, "i") };
+        } else if (typeSelect === "Full Time") {
+          filter.jobType = "Full Time";
+        } else if (typeSelect === "Part Time") {
+          filter.jobType = "Part Time";
         } else {
           // If type is invalid, return empty result
           return res.json([]);
@@ -584,6 +644,26 @@ async function run() {
       const querry = { _id: new ObjectId(id) };
       const result = await jobPostCollection.deleteOne(querry);
       res.send(result);
+    });
+    app.get("/jobPost/:id", async (req, res) => {
+      try {
+        const jobId = req.params.id;
+
+        // Construct filter based on jobId
+        const filter = { _id: new ObjectId(jobId) };
+
+        // Query the collection with the filter
+        const jobData = await jobPostCollection.findOne(filter);
+
+        if (!jobData) {
+          return res.status(404).json({ error: "Job not found." });
+        }
+
+        res.json(jobData);
+      } catch (error) {
+        console.error("Error fetching job post:", error);
+        res.status(500).json({ error: "Internal server error." });
+      }
     });
 
     app.get("/appliedJob", async (req, res) => {
