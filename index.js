@@ -523,6 +523,38 @@ async function run() {
       }
     });
 
+    app.get("/filterJobseeker", async (req, res) => {
+      try {
+        const { searchValue, typeSelect } = req.query;
+        console.log("🚀 ~ app.get ~ typeSelect:", typeSelect);
+
+        // Construct the filter object based on typeSelect and searchValue
+        const filter = {};
+
+        if (!typeSelect) {
+          // If no type is selected, search both jobTitle and companyName
+          filter.$or = [
+            { name: { $regex: new RegExp(searchValue, "i") } },
+            { email: { $regex: new RegExp(searchValue, "i") } },
+          ];
+        } else if (typeSelect === "Name") {
+          filter.name = { $regex: new RegExp(searchValue, "i") };
+        } else if (typeSelect === "Email") {
+          filter.email = { $regex: new RegExp(searchValue, "i") };
+        } else {
+          // If type is invalid, return empty result
+          return res.json([]);
+        }
+
+        // Fetch job posts based on the constructed filter
+        const filterJobseekers = await usersCollection.find(filter).toArray();
+
+        res.json(filterJobseekers);
+      } catch (error) {
+        console.error("Error filtering job posts:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
     // Resuem Upload
     app.post(
       "/resume/upload/:userEmail",
