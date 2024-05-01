@@ -8,6 +8,7 @@ const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const path = require("path");
 const UPLOAD_FOLDER = "./public/image";
+var nodemailer = require("nodemailer");
 app.use(express.static("public"));
 
 const storage = multer.diskStorage({
@@ -202,7 +203,7 @@ async function run() {
         expertiseField: "",
         expertiseLevel: "",
         jobPosition: "",
-        jobCompanyName: ""
+        jobCompanyName: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -218,35 +219,56 @@ async function run() {
     app.put("/update/:email", upload.single("images"), async (req, res) => {
       try {
         const email = req.params.email;
-        const { name, password, about, role, studies, location, preferredSalary, preferredJobType, expertiseField, expertiseLevel, jobPosition, jobCompanyName } = req.body;
-        console.log("🚀 ~ app.put ~ req.body:", req.body);
+        const {
+          name,
+          password,
+          about,
+          role,
+          studies,
+          location,
+          oldPass,
+          preferredSalary,
+          preferredJobType,
+          expertiseField,
+          expertiseLevel,
+          jobPosition,
+          jobCompanyName,
+          isUpdate,
+        } = req.body;
+        console.log("🚀 ~ app.put ~ oldPass:", oldPass);
         const filename = req.file ? req.file.filename : undefined;
-
-        let userToUpdate = {};
+        const newPassword = password ? password : undefined;
 
         // Retrieve existing user data
         const existingUser = await usersCollection.findOne({ email });
         if (!existingUser) {
           return res.status(404).json({ error: "User not found." });
         }
-        const paths = "http://localhost:5000/image/";
-        // Update fields provided in the request body
-        if (name) userToUpdate.name = name;
-        if (filename) userToUpdate.photoURL = paths + filename;
-        if (about) userToUpdate.about = about;
-        if (studies) userToUpdate.studies = studies;
-        if (location) userToUpdate.location = location;
-        if (preferredSalary) userToUpdate.preferredSalary = preferredSalary;
-        if (preferredJobType) userToUpdate.preferredJobType = preferredJobType;
-        if (expertiseField) userToUpdate.expertiseField = expertiseField;
-        if (expertiseLevel) userToUpdate.expertiseLevel = expertiseLevel;
-        if (jobPosition) userToUpdate.jobPosition = jobPosition;
-        if (jobCompanyName) userToUpdate.jobCompanyName = jobCompanyName
 
-        if (password !== "") {
-          const hashedPassword = await bcrypt.hash(password, 10);
+        // Update fields provided in the request body
+        const paths = "http://localhost:5000/image/";
+        const userToUpdate = {
+          name,
+          about,
+          studies,
+          location,
+          preferredSalary,
+          preferredJobType,
+          expertiseField,
+          expertiseLevel,
+          jobPosition,
+          jobCompanyName
+        };
+
+        if (isUpdate == "False") {
+          const hashedPassword = await bcrypt.hash(newPassword, 10);
           userToUpdate.password = hashedPassword;
+        } else if (isUpdate == "True") {
+          userToUpdate.password = oldPass;
         }
+        if (filename) userToUpdate.photoURL = paths + filename;
+
+        console.log("testing", userToUpdate);
         // Update user data in the database
         const result = await usersCollection.updateOne(
           { email },
@@ -365,6 +387,86 @@ async function run() {
         res.status(500).json({ error: "Internal server error." });
       }
     });
+    // Password Reset
+    app.post("/forgot-password/:email", async (req, res) => {
+      const userEmail = req.params.email;
+      console.log("🚀 ~ app.post ~ email:", userEmail);
+
+      try {
+        const user = await usersCollection.findOne({ email: userEmail });
+        if (!user) {
+          return res.send({ Status: "User not existed" });
+        }
+
+        const token = jwt.sign(
+          { id: user._id },
+          process.env.ACCESS_TOKEN_SECRET,
+          {
+            expiresIn: "7d",
+          }
+        );
+  
+        var transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: "algobot701@gmail.com",
+            pass: "jfth qddl nkgp yitb",
+            
+
+          },
+        });
+
+        var mailOptions = {
+          from: "algobot701@gmail.com",
+          to: user.email,
+          subject: "Reset Password Link",
+          text: `http://localhost:5173/reset_password/${user._id}/${token}`,
+        };
+
+        transporter.sendMail(mailOptions, function (error, info) {
+          if (error) {
+            console.log(error);
+          } else {
+            return res.send({ Status: "Success" });
+          }
+        });
+      } catch (error) {
+        console.error("Error occurred:", error);
+        return res.status(500).send({ Status: "Error" });
+      }
+    });
+    app.post("/reset-password/:id/:token", async (req, res) => {
+      const { id, token } = req.params;
+      const { password } = req.body;
+
+      try {
+        // Verify the token
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        if (!decoded) {
+          return res.json({ Status: "Error with token" });
+        }
+
+        // Hash the new password
+        const hash = await bcrypt.hash(password, 10);
+
+        // Update the user's password
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { password: hash } }
+        );
+
+        if (result.modifiedCount === 1) {
+          // Password updated successfully
+          return res.send({ Status: "Success" });
+        } else {
+          // No document was modified (no user found with the provided ID)
+          return res.status(404).json({ Status: "User not found." });
+        }
+      } catch (error) {
+        console.error("Error occurred:", error);
+        return res.status(500).send({ Status: "Error" });
+      }
+    });
 
     // Resuem Upload
     app.post(
@@ -402,7 +504,6 @@ async function run() {
         }
       }
     );
-
     // Resume Download
     app.get("/download/resume/:resumePath", (req, res) => {
       const name = req.params.resumePath;
