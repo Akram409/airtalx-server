@@ -376,13 +376,13 @@ async function run() {
         var transporter = nodemailer.createTransport({
           service: "gmail",
           auth: {
-            user: "akram.iiuc.ctg@gmail.com",
-            pass: "cxpc pneg ktno bmvb",
+            user: "",
+            pass: "",
           },
         });
 
         var mailOptions = {
-          from: "akram.iiuc.ctg@gmail.com",
+          from: "",
           to: user.email,
           subject: "Reset Password Link",
           text: `http://localhost:5173/reset_password/${user._id}/${token}`,
