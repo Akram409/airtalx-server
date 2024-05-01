@@ -145,6 +145,12 @@ async function run() {
         studies: "",
         location: "",
         resume: "",
+        preferredSalary: "",
+        preferredJobType: "",
+        expertiseField: "",
+        expertiseLevel: "",
+        jobPosition: "",
+        jobCompanyName: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -192,6 +198,12 @@ async function run() {
         studies: "",
         location: "",
         resume: "",
+        preferredSalary: "",
+        preferredJobType: "",
+        expertiseField: "",
+        expertiseLevel: "",
+        jobPosition: "",
+        jobCompanyName: "",
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -207,35 +219,56 @@ async function run() {
     app.put("/update/:email", upload.single("images"), async (req, res) => {
       try {
         const email = req.params.email;
-        const { name, password, about, role, studies, location, oldPass } =
-        req.body;
-        console.log("🚀 ~ app.put ~ oldPass:", oldPass)
+        const {
+          name,
+          password,
+          about,
+          role,
+          studies,
+          location,
+          oldPass,
+          preferredSalary,
+          preferredJobType,
+          expertiseField,
+          expertiseLevel,
+          jobPosition,
+          jobCompanyName,
+          isUpdate,
+        } = req.body;
+        console.log("🚀 ~ app.put ~ oldPass:", oldPass);
         const filename = req.file ? req.file.filename : undefined;
-        const newPassword = password ? password : undefined
-
-        let userToUpdate = {};
+        const newPassword = password ? password : undefined;
 
         // Retrieve existing user data
         const existingUser = await usersCollection.findOne({ email });
         if (!existingUser) {
           return res.status(404).json({ error: "User not found." });
         }
-        const paths = "http://localhost:5000/image/";
+
         // Update fields provided in the request body
-        if (name) userToUpdate.name = name;
-        if (filename) userToUpdate.photoURL = paths + filename;
-        if (about) userToUpdate.about = about;
-        if (studies) userToUpdate.studies = studies;
-        if (location) userToUpdate.location = location;
-        
-        if (newPassword) {
+        const paths = "http://localhost:5000/image/";
+        const userToUpdate = {
+          name,
+          about,
+          studies,
+          location,
+          preferredSalary,
+          preferredJobType,
+          expertiseField,
+          expertiseLevel,
+          jobPosition,
+          jobCompanyName
+        };
+
+        if (isUpdate == "False") {
           const hashedPassword = await bcrypt.hash(newPassword, 10);
           userToUpdate.password = hashedPassword;
-        } else {
+        } else if (isUpdate == "True") {
           userToUpdate.password = oldPass;
         }
+        if (filename) userToUpdate.photoURL = paths + filename;
 
-        console.log("testing",userToUpdate)
+        console.log("testing", userToUpdate);
         // Update user data in the database
         const result = await usersCollection.updateOne(
           { email },
