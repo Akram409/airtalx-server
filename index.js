@@ -105,6 +105,11 @@ async function run() {
           return res.status(401).json({ error: "Invalid email or password." });
         }
 
+        // Check if the user is verified:
+        if (!user.verification) {
+          return res.status(401).json({ error: "User not verified." });
+        }
+
         const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
           expiresIn: "7d",
         });
@@ -221,6 +226,11 @@ async function run() {
 
         if (!user) {
           return res.status(404).send({ message: "User not found" });
+        }
+        
+        // Check if the user is verified:
+        if (!user.verification) {
+          return res.status(401).json({ error: "User not verified." });
         }
 
         const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -385,7 +395,7 @@ async function run() {
       res.send(result);
     });
     app.get("/users/jobseeker", async (req, res) => {
-      let query = { role: "jobseeker" }
+      let query = { role: "jobseeker" };
       try {
         const result = await usersCollection.find(query).toArray();
         res.send(result);
