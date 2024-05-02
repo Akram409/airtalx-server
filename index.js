@@ -116,7 +116,7 @@ async function run() {
     });
     // Signup
     app.post("/signup", upload.single("images"), async (req, res) => {
-      const { name, email, role, password } = req.body;
+      const { name, email, role, password, memberSince } = req.body;
       const filenames = req.file.filename;
       const query = { email: email };
 
@@ -156,7 +156,7 @@ async function run() {
         expertiseLevel: "",
         jobPosition: "",
         jobCompanyName: "",
-        memberSince: "",
+        memberSince,
       };
 
       var transporter = nodemailer.createTransport({
@@ -200,10 +200,9 @@ async function run() {
         if (!user) {
           return res.status(401).json({ message: 'otp didn"t match' });
         }
-        console.log(user);
         const result = await usersCollection.updateOne(
           { _id: user._id },
-          { verification: true }
+          { $set: { verification: true } }
         );
         return res.status(200).json({
           message: "successfully verify email. have a good day",
@@ -236,7 +235,7 @@ async function run() {
     });
     // Google Signup
     app.post("/google/signup", async (req, res) => {
-      const { name, email, role, photoURL } = req.body;
+      const { name, email, role, photoURL, memberSince } = req.body;
       const query = { email: email };
 
       const existingUser = await usersCollection.findOne(query);
@@ -260,7 +259,7 @@ async function run() {
         expertiseLevel: "",
         jobPosition: "",
         jobCompanyName: "",
-        memberSince: "",
+        memberSince,
       };
 
       const insertedData = await usersCollection.insertOne(userData);
@@ -280,7 +279,6 @@ async function run() {
           name,
           password,
           about,
-          verification,
           role,
           studies,
           location,
@@ -308,7 +306,6 @@ async function run() {
         const userToUpdate = {
           name,
           about,
-          verification,
           studies,
           location,
           preferredSalary,
@@ -387,6 +384,17 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    app.get("/users/jobseeker", async (req, res) => {
+      let query = { role: "jobseeker" }
+      try {
+        const result = await usersCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching jobseeker data:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
     app.get("/users/admin/:id", verifyJWT, async (req, res) => {
       const email = req.params.email;
       if (req.decoded.email !== email) {
@@ -528,11 +536,10 @@ async function run() {
     app.get("/filterJobseeker", async (req, res) => {
       try {
         const { searchValue, typeSelect } = req.query;
-        console.log("🚀 ~ app.get ~ typeSelect:", typeSelect);
 
         // Construct the filter object based on typeSelect and searchValue
-        const filter = {};
 
+        const filter = { role: "jobseeker" };
         if (!typeSelect) {
           // If no type is selected, search both jobTitle and companyName
           filter.$or = [
@@ -604,7 +611,6 @@ async function run() {
     app.get("/filterJob", async (req, res) => {
       try {
         const { searchValue, typeSelect } = req.query;
-        console.log("🚀 ~ app.get ~ typeSelect:", typeSelect);
 
         // Construct the filter object based on typeSelect and searchValue
         const filter = {};
