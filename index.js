@@ -616,6 +616,20 @@ async function run() {
       res.download(path.resolve(`public\\image\\${name}`));
     });
 
+    //post a blog
+    const blogPostCollection = client.db("airtalxDB").collection("newBlogs");
+
+    app.post("/newBlogs", async (req, res) => {
+      const newBlogs = req.body;
+      // console.log(newBlogs);
+      const result = await blogPostCollection.insertOne(newBlogs);
+      res.send(result);
+    });
+    app.get("/newBlogs", async (req, res) => {
+      const result = await blogPostCollection.find().toArray();
+      res.send(result);
+    });
+
     //post a job
     const jobPostCollection = client.db("airtalxDB").collection("jobPosts");
     app.get("/filterJob", async (req, res) => {
