@@ -227,7 +227,7 @@ async function run() {
         if (!user) {
           return res.status(404).send({ message: "User not found" });
         }
-        
+
         // Check if the user is verified:
         if (!user.verification) {
           return res.status(401).json({ error: "User not verified." });
@@ -628,6 +628,100 @@ async function run() {
     app.get("/newBlogs", async (req, res) => {
       const result = await blogPostCollection.find().toArray();
       res.send(result);
+    });
+    app.get("/newBlogs/:id", async (req, res) => {
+      const blogId = req.params.id;
+
+      try {
+        const result = await blogPostCollection.findOne({
+          _id: new ObjectId(blogId),
+        });
+        if (result) {
+          res.send(result);
+        } else {
+          res.status(404).send("Blog post not found.");
+        }
+      } catch (error) {
+        console.error("Error finding blog post:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    app.post("/blog/update/likeDislike/:id", async (req, res) => {
+      const { id } = req.params;
+      const { userEmail, reaction } = req.body;
+
+      try {
+        let update;
+        let message;
+
+        const blog = await blogPostCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!blog) {
+          res.status(404).send("Blog post not found.");
+          return;
+        }
+
+        if (reaction === "like") {
+          if (blog.reactLike.includes(userEmail)) {
+            update = {
+              $pull: { reactLike: userEmail },
+              $inc: { likes: -1 },
+            };
+            message = "Like removed from the blog";
+          } else {
+            update = {
+              $addToSet: { reactLike: userEmail },
+              $inc: { likes: 1 },
+            };
+            message = "Like added for the blog";
+            if (blog.reactDisLike.includes(userEmail)) {
+              update.$pull = { reactDisLike: userEmail };
+              update.$inc.dislikes = -1;
+              message = "Like removed from the blog";
+            }
+          }
+        } else if (reaction === "dislike") {
+          if (blog.reactDisLike.includes(userEmail)) {
+            update = {
+              $pull: { reactDisLike: userEmail },
+              $inc: { dislikes: -1 },
+            };
+            message = "Dislike removed from the blog";
+          } else {
+            update = {
+              $addToSet: { reactDisLike: userEmail },
+              $inc: { dislikes: 1 },
+            };
+            message = "Dislike added for the blog";
+
+            if (blog.reactLike.includes(userEmail)) {
+              update.$pull = { reactLike: userEmail };
+              update.$inc.likes = -1;
+              message = "Dislike removed from the blog";
+            }
+          }
+        } else {
+          res.status(400).send("Invalid reaction");
+          return;
+        }
+
+        const result = await blogPostCollection.updateOne(
+          { _id: new ObjectId(id) },
+          update
+        );
+
+        if (result.modifiedCount === 1) {
+          res.send(message);
+        } else {
+          res.status(500).send("Failed to update reaction");
+        }
+      } catch (error) {
+        console.error("Error updating reaction:", error);
+        res.status(500).send("Internal Server Error");
+      }
     });
 
     //post a job
