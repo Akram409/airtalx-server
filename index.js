@@ -571,11 +571,17 @@ async function run() {
           filter.$or = [
             { name: { $regex: new RegExp(searchValue, "i") } },
             { email: { $regex: new RegExp(searchValue, "i") } },
+            { preferredJobType: { $regex: new RegExp(searchValue, "i") } },
+            { jobPosition: { $regex: new RegExp(searchValue, "i") } },
           ];
         } else if (typeSelect === "Name") {
           filter.name = { $regex: new RegExp(searchValue, "i") };
         } else if (typeSelect === "Email") {
           filter.email = { $regex: new RegExp(searchValue, "i") };
+        } else if (typeSelect === "JobType") {
+          filter.preferredJobType = { $regex: new RegExp(searchValue, "i") };
+        } else if (typeSelect === "JobPosition") {
+          filter.jobPosition = { $regex: new RegExp(searchValue, "i") };
         } else {
           // If type is invalid, return empty result
           return res.json([]);
