@@ -647,7 +647,6 @@ async function run() {
     });
     app.get("/newBlogs/:id", async (req, res) => {
       const blogId = req.params.id;
-
       try {
         const result = await blogPostCollection.findOne({
           _id: new ObjectId(blogId),
@@ -661,6 +660,13 @@ async function run() {
         console.error("Error finding blog post:", error);
         res.status(500).send("Internal Server Error");
       }
+    });
+
+    app.delete("/newBlogs/:id", async (req, res) => {
+      const id = req.params.id;
+      const querry = { _id: new ObjectId(id) };
+      const result = await blogPostCollection.deleteOne(querry);
+      res.send(result);
     });
 
     app.post("/blog/update/likeDislike/:id", async (req, res) => {
@@ -837,6 +843,22 @@ async function run() {
       }
       console.log(job)
       const result = await jobPostCollection.updateOne(filter, job, options);
+      res.send(result);
+    })
+
+    app.put('/newBlogs/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedBlog = req.body;
+      const job = {
+        $set: {
+          blogTitle: updatedBlog.blogTitle,
+          blogBody: updatedBlog.blogBody,
+        }
+      }
+      console.log(job)
+      const result = await blogPostCollection.updateOne(filter, job, options);
       res.send(result);
     })
 
