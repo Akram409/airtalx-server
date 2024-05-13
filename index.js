@@ -799,6 +799,32 @@ async function run() {
       const result = await jobPostCollection.insertOne(newJobPost);
       res.send(result);
     });
+    app.delete("/newJobPost/:id", async (req, res) => {
+      const id = req.params.id;
+      const querry = { _id: new ObjectId(id) };
+      const result = await jobPostCollection.deleteOne(querry);
+      res.send(result);
+    });
+
+    app.put('/newJobPost/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedJob = req.body;
+      const job = {
+        $set: {
+          headline: updatedJob.headline,
+          jobType: updatedJob.jobType,
+          jobTitle: updatedJob.jobTitle,
+          startingSalary: updatedJob.startingSalary,
+          endingSalary: updatedJob.endingSalary,
+          jobDescription: updatedJob.jobDescription
+        }
+      }
+      console.log(job)
+      const result = await jobPostCollection.updateOne(filter, job, options);
+      res.send(result);
+    })
     //shows only user's job posts
     app.get("/myJobPosts", async (req, res) => {
       // console.log(req.query.email);
