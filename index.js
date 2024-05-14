@@ -150,6 +150,7 @@ async function run() {
         photoURL: path + filenames,
         password: hashedPassword,
         verification: false,
+        isSuspended: false,
         otp,
         about: "",
         studies: "",
@@ -263,6 +264,7 @@ async function run() {
         photoURL: photoURL,
         password: "",
         verification: true,
+        isSuspended: false,
         about: "",
         studies: "",
         location: "",
@@ -438,6 +440,30 @@ async function run() {
       const updatedDoc = {
         $set: {
           role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    //suspend user
+    app.patch("/users/admin/suspend/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          isSuspended: true,
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    //unsuspend user
+    app.patch("/users/admin/unsuspend/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          isSuspended: false,
         },
       };
       const result = await usersCollection.updateOne(filter, updatedDoc);
