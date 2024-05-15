@@ -147,6 +147,7 @@ async function run() {
         name: name,
         email: email,
         role: role,
+        prevRole: role,
         photoURL: path + filenames,
         password: hashedPassword,
         verification: false,
@@ -261,6 +262,7 @@ async function run() {
         name: name,
         email: email,
         role: role,
+        prevRole: role,
         photoURL: photoURL,
         password: "",
         verification: true,
@@ -433,6 +435,7 @@ async function run() {
       const result = { admin: user?.role === "admin" };
       res.send(result);
     });
+
     //making admin role
     app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
@@ -445,6 +448,24 @@ async function run() {
       const result = await usersCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
+
+    //undo admin role
+    app.patch("/users/admin/undoAdmin/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }; // Assuming id is the user's ObjectId
+      const user = await usersCollection.findOne(query);
+      if (!user) {
+        return res.status(404).send("User not found");
+      }
+      const updatedDoc = {
+        $set: {
+          role: user.prevRole,
+        },
+      };
+      const result = await usersCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
     //suspend user
     app.patch("/users/admin/suspend/:id", async (req, res) => {
       const id = req.params.id;
@@ -457,6 +478,7 @@ async function run() {
       const result = await usersCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
+
     //unsuspend user
     app.patch("/users/admin/unsuspend/:id", async (req, res) => {
       const id = req.params.id;
@@ -506,6 +528,7 @@ async function run() {
         res.status(500).json({ error: "Internal server error." });
       }
     });
+    
     // Password Reset
     app.post("/forgot-password/:email", async (req, res) => {
       const userEmail = req.params.email;
